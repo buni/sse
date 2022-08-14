@@ -47,9 +47,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	eventid := 0
+
 	if id := r.Header.Get("Last-Event-ID"); id != "" {
 		var err error
 		eventid, err = strconv.Atoi(id)
+
 		if err != nil {
 			http.Error(w, "Last-Event-ID must be a number!", http.StatusBadRequest)
 			return
@@ -80,11 +82,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// if the event has expired, dont send it
-		if s.EventTTL != 0 && time.Now().After(ev.timestamp.Add(s.EventTTL)) {
+		if s.EventTTL != 0 && time.Now().UTC().After(ev.timestamp.Add(s.EventTTL)) {
 			continue
 		}
 
 		if len(ev.Data) > 0 {
+
 			fmt.Fprintf(w, "id: %s\n", ev.ID)
 
 			if s.SplitData {

@@ -71,8 +71,6 @@ func (s *Server) Close() {
 	}
 }
 
-
-
 // CreateStream will create a new stream and register it
 func (s *Server) CreateStream(id string, options ...StreamOption) *Stream {
 	s.mu.Lock()
@@ -114,10 +112,18 @@ func (s *Server) StreamExists(id string) bool {
 	return s.Streams[id] != nil
 }
 
-// Publish sends a mesage to every client in a streamID
+// Publish sends a message to every client in a streamID
+// if id is empty sends the message to all streams
 func (s *Server) Publish(id string, event *Event) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if id == "" {
+		for _, stream := range s.Streams {
+			stream.event <- s.process(event)
+		}
+	}
+
 	if s.Streams[id] != nil {
 		s.Streams[id].event <- s.process(event)
 	}
