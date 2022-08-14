@@ -9,6 +9,44 @@ import (
 	"sync/atomic"
 )
 
+// StreamOption modifies stream parameters
+type StreamOption func(*Stream)
+
+// WithAutoReplay enables auto reply
+func WithAutoReplay(autoReply bool) StreamOption {
+	return func(s *Stream) {
+		s.AutoReplay = autoReply
+	}
+}
+
+// WithAutoReplay enables auto stream
+func WithAutoStream(autoStream bool) StreamOption {
+	return func(s *Stream) {
+		s.isAutoStream = autoStream
+	}
+}
+
+// WithBufferSize sets the event channel size
+func WithBufferSize(buffSize int) StreamOption {
+	return func(s *Stream) {
+		s.event = make(chan *Event, buffSize)
+	}
+}
+
+// WithOnSubscribe sets on subscribe callback
+func WithOnSubscribe(onSubscribe func(string, *Subscriber)) StreamOption {
+	return func(s *Stream) {
+		s.OnSubscribe = onSubscribe
+	}
+}
+
+// WithOnSubscribe sets on unsubscribe callback
+func WithOnUnsubscribe(onUnsubscribe func(string, *Subscriber)) StreamOption {
+	return func(s *Stream) {
+		s.OnUnsubscribe = onUnsubscribe
+	}
+}
+
 // Stream ...
 type Stream struct {
 	ID              string
@@ -17,7 +55,7 @@ type Stream struct {
 	register        chan *Subscriber
 	deregister      chan *Subscriber
 	subscribers     []*Subscriber
-	Eventlog        EventLog
+	Eventlog        *EventLog
 	subscriberCount int32
 	// Enables replaying of eventlog to newly added subscribers
 	AutoReplay   bool
@@ -39,7 +77,7 @@ func newStream(id string, buffSize int, replay, isAutoStream bool, onSubscribe, 
 		deregister:    make(chan *Subscriber),
 		event:         make(chan *Event, buffSize),
 		quit:          make(chan struct{}),
-		Eventlog:      make(EventLog, 0),
+		Eventlog:      &EventLog{eventLog: make([]*Event, buffSize, buffSize), cap: buffSize},
 		OnSubscribe:   onSubscribe,
 		OnUnsubscribe: onUnsubscribe,
 	}

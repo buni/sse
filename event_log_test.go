@@ -11,16 +11,22 @@ import (
 )
 
 func TestEventLog(t *testing.T) {
-	ev := make(EventLog, 0)
+	ev := &EventLog{
+		eventLog: make([]*Event, 2, 2),
+		cap:      2,
+		pointer:  0,
+		sequence: 0,
+		// rw:       sync.RWMutex{},
+	}
 	testEvent := &Event{Data: []byte("test")}
 
 	ev.Add(testEvent)
 	ev.Clear()
 
-	assert.Equal(t, 0, len(ev))
+	assert.Equal(t, 2, len(ev.eventLog))
 
 	ev.Add(testEvent)
 	ev.Add(testEvent)
 
-	assert.Equal(t, 2, len(ev))
+	assert.Equal(t, 2, len(ev.eventLog))
 }

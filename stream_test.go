@@ -95,5 +95,4 @@ func TestStreamMultipleSubscribers(t *testing.T) {
 	// Wait for all subscribers to close
 	time.Sleep(time.Millisecond * 100)
 	assert.Equal(t, 0, s.getSubscriberCount())
-
 }

@@ -5,12 +5,18 @@
 package sse
 
 import (
+	"sort"
 	"strconv"
 	"time"
 )
 
 // EventLog holds all of previous events
-type EventLog []*Event
+type EventLog struct {
+	eventLog []*Event
+	cap      int
+	pointer  int
+	sequence int
+}
 
 // Add event to eventlog
 func (e *EventLog) Add(ev *Event) {
@@ -18,26 +24,38 @@ func (e *EventLog) Add(ev *Event) {
 		return
 	}
 
-	ev.ID = []byte(e.currentindex())
-	ev.timestamp = time.Now()
-	*e = append(*e, ev)
+	ev.ID = []byte(strconv.Itoa(e.sequence))
+	ev.timestamp = time.Now().UTC()
+	e.sequence++
+	e.eventLog[e.pointer] = ev
+	e.pointer = (e.pointer + 1) % e.cap
 }
 
 // Clear events from eventlog
 func (e *EventLog) Clear() {
-	*e = nil
+	e.eventLog = make([]*Event, e.cap, e.cap)
 }
 
 // Replay events to a subscriber
 func (e *EventLog) Replay(s *Subscriber) {
-	for i := 0; i < len(*e); i++ {
-		id, _ := strconv.Atoi(string((*e)[i].ID))
-		if id >= s.eventid {
-			s.connection <- (*e)[i]
+	sortedEventLog := []*Event{}
+
+	for _, v := range e.eventLog {
+		if v != nil {
+			id, _ := strconv.Atoi(string(v.ID))
+			if id >= s.eventid {
+				sortedEventLog = append(sortedEventLog, v)
+			}
 		}
 	}
-}
 
-func (e *EventLog) currentindex() string {
-	return strconv.Itoa(len(*e))
+	sort.Slice(sortedEventLog, func(i, j int) bool {
+		idI, _ := strconv.Atoi(string(e.eventLog[i].ID))
+		idJ, _ := strconv.Atoi(string(e.eventLog[j].ID))
+		return idI < idJ
+	})
+
+	for _, v := range sortedEventLog {
+		s.connection <- v
+	}
 }

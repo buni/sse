@@ -71,8 +71,10 @@ func (s *Server) Close() {
 	}
 }
 
+
+
 // CreateStream will create a new stream and register it
-func (s *Server) CreateStream(id string) *Stream {
+func (s *Server) CreateStream(id string, options ...StreamOption) *Stream {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -81,6 +83,11 @@ func (s *Server) CreateStream(id string) *Stream {
 	}
 
 	str := newStream(id, s.BufferSize, s.AutoReplay, s.AutoStream, s.OnSubscribe, s.OnUnsubscribe)
+
+	for _, option := range options {
+		option(str)
+	}
+
 	str.run()
 
 	s.Streams[id] = str
