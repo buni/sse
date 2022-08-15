@@ -125,7 +125,9 @@ func (r *redisRingBuffer) IncrementCounter(ctx context.Context, key string) (cou
 }
 
 func (r *redisRingBuffer) Add(id string, ev *Event) {
-	r.IncrementCounter(context.Background(), id)
+	ev.timestamp = time.Now().UTC()
+	ev.ID = []byte(strconv.Itoa(int(r.IncrementCounter(context.Background(), id))))
+
 	r.Push(context.Background(), id, ev)
 }
 
