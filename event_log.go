@@ -5,9 +5,14 @@
 package sse
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/go-redis/redis/v8"
 )
 
 // EventLog interface
@@ -68,4 +73,90 @@ func (e *LocalEventLog) Replay(id string, s *Subscriber) {
 		s.connection <- v
 	}
 	return
+}
+
+type redisRingBuffer struct {
+	rs         *redis.Client
+	cap        int64
+	expiration time.Duration
+}
+
+func NewRedisRingBuffer(rs *redis.Client,
+	cap int64,
+	expiration time.Duration,
+) *redisRingBuffer {
+	return &redisRingBuffer{
+		rs:         rs,
+		cap:        cap,
+		expiration: expiration,
+	}
+}
+
+func (r *redisRingBuffer) Push(ctx context.Context, key string, element any) (err error) {
+	elementJSON, err := json.Marshal(element)
+	if err != nil {
+		return fmt.Errorf("failed to marshal: %w", err)
+	}
+
+	p := r.rs.Pipeline()
+	p.LPush(ctx, key, elementJSON)
+	p.LTrim(ctx, key, 0, r.cap)
+	p.Expire(ctx, key, r.expiration)
+
+	_, err = p.Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to exec command: %w", err)
+	}
+	return
+}
+
+func (r *redisRingBuffer) Get(ctx context.Context, key string, element any) (err error) {
+	result := r.rs.LRange(ctx, key, 0, r.cap)
+
+	err = result.ScanSlice(element)
+	if err != nil {
+		return fmt.Errorf("failed to scan slice: %w", err)
+	}
+	return
+}
+
+func (r *redisRingBuffer) IncrementCounter(ctx context.Context, key string) (count int64) {
+	return r.rs.Incr(ctx, key).Val()
+}
+
+func (r *redisRingBuffer) Add(id string, ev *Event) {
+	r.IncrementCounter(context.Background(), id)
+	r.Push(context.Background(), id, ev)
+}
+
+func (r *redisRingBuffer) Replay(id string, s *Subscriber) {
+	sortedEventLog := []*Event{}
+
+	err := r.Get(context.Background(), id, &sortedEventLog)
+	if err != nil {
+		return
+	}
+
+	for _, v := range sortedEventLog {
+		if v != nil {
+			id, _ := strconv.Atoi(string(v.ID))
+			if id >= s.eventid {
+				sortedEventLog = append(sortedEventLog, v)
+			}
+		}
+	}
+
+	sort.Slice(sortedEventLog, func(i, j int) bool {
+		idI, _ := strconv.Atoi(string(sortedEventLog[i].ID))
+		idJ, _ := strconv.Atoi(string(sortedEventLog[j].ID))
+		return idI < idJ
+	})
+
+	for _, v := range sortedEventLog {
+		s.connection <- v
+	}
+}
+
+func (r *redisRingBuffer) Clear(id string) {
+	r.rs.Del(context.Background(), id)
 }
