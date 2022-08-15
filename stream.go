@@ -33,6 +33,13 @@ func WithBufferSize(buffSize int) StreamOption {
 	}
 }
 
+// WithEventLog sets the event log
+func WithEventLog(eventLog EventLog) StreamOption {
+	return func(s *Stream) {
+		s.EventLog = eventLog
+	}
+}
+
 // WithOnSubscribe sets on subscribe callback
 func WithOnSubscribe(onSubscribe func(string, *Subscriber)) StreamOption {
 	return func(s *Stream) {
@@ -55,7 +62,7 @@ type Stream struct {
 	register        chan *Subscriber
 	deregister      chan *Subscriber
 	subscribers     []*Subscriber
-	Eventlog        *EventLog
+	EventLog        EventLog
 	subscriberCount int32
 	// Enables replaying of eventlog to newly added subscribers
 	AutoReplay   bool
@@ -67,20 +74,29 @@ type Stream struct {
 }
 
 // newStream returns a new stream
-func newStream(id string, buffSize int, replay, isAutoStream bool, onSubscribe, onUnsubscribe func(string, *Subscriber)) *Stream {
-	return &Stream{
-		ID:            id,
-		AutoReplay:    replay,
-		subscribers:   make([]*Subscriber, 0),
-		isAutoStream:  isAutoStream,
-		register:      make(chan *Subscriber),
-		deregister:    make(chan *Subscriber),
-		event:         make(chan *Event, buffSize),
-		quit:          make(chan struct{}),
-		Eventlog:      &EventLog{eventLog: make([]*Event, buffSize, buffSize), cap: buffSize},
-		OnSubscribe:   onSubscribe,
-		OnUnsubscribe: onUnsubscribe,
+func newStream(id string, buffSize int, replay, isAutoStream bool, onSubscribe, onUnsubscribe func(string, *Subscriber), eventLog EventLog) *Stream {
+	stream := &Stream{
+		ID:              id,
+		event:           make(chan *Event, buffSize),
+		quit:            make(chan struct{}),
+		register:        make(chan *Subscriber),
+		deregister:      make(chan *Subscriber),
+		subscribers:     make([]*Subscriber, 0),
+		subscriberCount: 0,
+		AutoReplay:      replay,
+		isAutoStream:    isAutoStream,
+		OnSubscribe:     onSubscribe,
+		OnUnsubscribe:   onUnsubscribe,
 	}
+	
+	if eventLog == nil {
+		stream.EventLog = &LocalEventLog{
+			eventLog: make([]*Event, buffSize, buffSize),
+			cap:      buffSize,
+		}
+	}
+
+	return stream
 }
 
 func (str *Stream) run() {
@@ -91,7 +107,7 @@ func (str *Stream) run() {
 			case subscriber := <-str.register:
 				str.subscribers = append(str.subscribers, subscriber)
 				if str.AutoReplay {
-					str.Eventlog.Replay(subscriber)
+					str.EventLog.Replay(subscriber)
 				}
 
 			// Remove closed subscriber
@@ -108,7 +124,7 @@ func (str *Stream) run() {
 			// Publish event to subscribers
 			case event := <-str.event:
 				if str.AutoReplay {
-					str.Eventlog.Add(event)
+					str.EventLog.Add(event)
 				}
 				for i := range str.subscribers {
 					str.subscribers[i].connection <- event

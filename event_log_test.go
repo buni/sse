@@ -11,12 +11,11 @@ import (
 )
 
 func TestEventLog(t *testing.T) {
-	ev := &EventLog{
+	ev := &LocalEventLog{
 		eventLog: make([]*Event, 2, 2),
 		cap:      2,
 		pointer:  0,
 		sequence: 0,
-		// rw:       sync.RWMutex{},
 	}
 	testEvent := &Event{Data: []byte("test")}
 

@@ -10,8 +10,15 @@ import (
 	"time"
 )
 
+// EventLog interface
+type EventLog interface {
+	Add(ev *Event)
+	Replay(s *Subscriber)
+	Clear()
+}
+
 // EventLog holds all of previous events
-type EventLog struct {
+type LocalEventLog struct {
 	eventLog []*Event
 	cap      int
 	pointer  int
@@ -19,7 +26,7 @@ type EventLog struct {
 }
 
 // Add event to eventlog
-func (e *EventLog) Add(ev *Event) {
+func (e *LocalEventLog) Add(ev *Event) {
 	if !ev.hasContent() {
 		return
 	}
@@ -29,15 +36,17 @@ func (e *EventLog) Add(ev *Event) {
 	e.sequence++
 	e.eventLog[e.pointer] = ev
 	e.pointer = (e.pointer + 1) % e.cap
+	return
 }
 
 // Clear events from eventlog
-func (e *EventLog) Clear() {
+func (e *LocalEventLog) Clear() {
 	e.eventLog = make([]*Event, e.cap, e.cap)
+	return
 }
 
 // Replay events to a subscriber
-func (e *EventLog) Replay(s *Subscriber) {
+func (e *LocalEventLog) Replay(s *Subscriber) {
 	sortedEventLog := []*Event{}
 
 	for _, v := range e.eventLog {
@@ -58,4 +67,5 @@ func (e *EventLog) Replay(s *Subscriber) {
 	for _, v := range sortedEventLog {
 		s.connection <- v
 	}
+	return
 }

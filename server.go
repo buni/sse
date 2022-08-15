@@ -34,6 +34,8 @@ type Server struct {
 	// Specifies the function to run when client subscribe or un-subscribe
 	OnSubscribe   func(streamID string, sub *Subscriber)
 	OnUnsubscribe func(streamID string, sub *Subscriber)
+	// Specifies the EventLog used for each new stream
+	EventLog EventLog
 }
 
 // New will create a server and setup defaults
@@ -80,7 +82,7 @@ func (s *Server) CreateStream(id string, options ...StreamOption) *Stream {
 		return s.Streams[id]
 	}
 
-	str := newStream(id, s.BufferSize, s.AutoReplay, s.AutoStream, s.OnSubscribe, s.OnUnsubscribe)
+	str := newStream(id, s.BufferSize, s.AutoReplay, s.AutoStream, s.OnSubscribe, s.OnUnsubscribe, s.EventLog)
 
 	for _, option := range options {
 		option(str)
