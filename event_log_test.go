@@ -19,13 +19,13 @@ func TestEventLog(t *testing.T) {
 	}
 	testEvent := &Event{Data: []byte("test")}
 
-	ev.Add(testEvent)
-	ev.Clear()
+	ev.Add("id", testEvent)
+	ev.Clear("id")
 
 	assert.Equal(t, 2, len(ev.eventLog))
 
-	ev.Add(testEvent)
-	ev.Add(testEvent)
+	ev.Add("id", testEvent)
+	ev.Add("id", testEvent)
 
 	assert.Equal(t, 2, len(ev.eventLog))
 }

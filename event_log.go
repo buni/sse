@@ -12,9 +12,9 @@ import (
 
 // EventLog interface
 type EventLog interface {
-	Add(ev *Event)
-	Replay(s *Subscriber)
-	Clear()
+	Add(id string, ev *Event)
+	Replay(id string, s *Subscriber)
+	Clear(id string)
 }
 
 // EventLog holds all of previous events
@@ -26,7 +26,7 @@ type LocalEventLog struct {
 }
 
 // Add event to eventlog
-func (e *LocalEventLog) Add(ev *Event) {
+func (e *LocalEventLog) Add(id string, ev *Event) {
 	if !ev.hasContent() {
 		return
 	}
@@ -40,13 +40,13 @@ func (e *LocalEventLog) Add(ev *Event) {
 }
 
 // Clear events from eventlog
-func (e *LocalEventLog) Clear() {
+func (e *LocalEventLog) Clear(id string) {
 	e.eventLog = make([]*Event, e.cap, e.cap)
 	return
 }
 
 // Replay events to a subscriber
-func (e *LocalEventLog) Replay(s *Subscriber) {
+func (e *LocalEventLog) Replay(id string, s *Subscriber) {
 	sortedEventLog := []*Event{}
 
 	for _, v := range e.eventLog {

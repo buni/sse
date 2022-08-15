@@ -88,7 +88,7 @@ func newStream(id string, buffSize int, replay, isAutoStream bool, onSubscribe, 
 		OnSubscribe:     onSubscribe,
 		OnUnsubscribe:   onUnsubscribe,
 	}
-	
+
 	if eventLog == nil {
 		stream.EventLog = &LocalEventLog{
 			eventLog: make([]*Event, buffSize, buffSize),
@@ -107,7 +107,7 @@ func (str *Stream) run() {
 			case subscriber := <-str.register:
 				str.subscribers = append(str.subscribers, subscriber)
 				if str.AutoReplay {
-					str.EventLog.Replay(subscriber)
+					str.EventLog.Replay(str.ID, subscriber)
 				}
 
 			// Remove closed subscriber
@@ -124,7 +124,7 @@ func (str *Stream) run() {
 			// Publish event to subscribers
 			case event := <-str.event:
 				if str.AutoReplay {
-					str.EventLog.Add(event)
+					str.EventLog.Add(str.ID, event)
 				}
 				for i := range str.subscribers {
 					str.subscribers[i].connection <- event
@@ -183,6 +183,7 @@ func (str *Stream) removeSubscriber(i int) {
 		str.subscribers[i].removed <- struct{}{}
 		close(str.subscribers[i].removed)
 	}
+
 	str.subscribers = append(str.subscribers[:i], str.subscribers[i+1:]...)
 }
 

@@ -103,7 +103,7 @@ func (s *Server) RemoveStream(id string) {
 	if s.Streams[id] != nil {
 		s.Streams[id].close()
 		delete(s.Streams, id)
-		s.Streams[id].EventLog.Clear()
+		s.Streams[id].EventLog.Clear(id)
 	}
 }
 
