@@ -21,6 +21,7 @@ type Event struct {
 	Event     []byte
 	Retry     []byte
 	Comment   []byte
+	Save      bool
 }
 
 func (e *Event) hasContent() bool {

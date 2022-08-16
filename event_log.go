@@ -32,7 +32,7 @@ type LocalEventLog struct {
 
 // Add event to eventlog
 func (e *LocalEventLog) Add(id string, ev *Event) {
-	if !ev.hasContent() {
+	if !ev.hasContent() || !ev.Save {
 		return
 	}
 
@@ -125,6 +125,9 @@ func (r *redisRingBuffer) IncrementCounter(ctx context.Context, key string) (cou
 }
 
 func (r *redisRingBuffer) Add(id string, ev *Event) {
+	if !ev.hasContent() || !ev.Save {
+		return
+	}
 	ev.timestamp = time.Now().UTC()
 	ev.ID = []byte(strconv.Itoa(int(r.IncrementCounter(context.Background(), id))))
 
