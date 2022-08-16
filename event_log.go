@@ -121,7 +121,7 @@ func (r *redisRingBuffer) Get(ctx context.Context, key string, element any) (err
 }
 
 func (r *redisRingBuffer) IncrementCounter(ctx context.Context, key string) (count int64) {
-	return r.rs.Incr(ctx, key).Val()
+	return r.rs.Incr(ctx, key+"_counter").Val()
 }
 
 func (r *redisRingBuffer) Add(id string, ev *Event) {

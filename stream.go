@@ -199,6 +199,6 @@ func (str *Stream) removeAllSubscribers() {
 	str.subscribers = str.subscribers[:0]
 }
 
-func (str *Stream) getSubscriberCount() int {
+func (str *Stream) GetSubscriberCount() int {
 	return int(atomic.LoadInt32(&str.subscriberCount))
 }

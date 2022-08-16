@@ -66,7 +66,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		sub.close()
 
-		if s.AutoStream && !s.AutoReplay && stream.getSubscriberCount() == 0 {
+		if s.AutoStream && !s.AutoReplay && stream.GetSubscriberCount() == 0 {
 			s.RemoveStream(streamID)
 		}
 	}()

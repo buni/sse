@@ -114,7 +114,7 @@ func (s *Server) GracefullyRemoveStream(id string) bool {
 	defer s.mu.Unlock()
 
 	if s.Streams[id] != nil {
-		if s.Streams[id].getSubscriberCount() == 0 {
+		if s.Streams[id].GetSubscriberCount() == 0 {
 			s.Streams[id].close()
 			delete(s.Streams, id)
 			return true
