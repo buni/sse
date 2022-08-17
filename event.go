@@ -15,7 +15,7 @@ import (
 
 // Event holds all of the event source fields
 type Event struct {
-	timestamp time.Time
+	Timestamp time.Time
 	ID        []byte
 	Data      []byte
 	Event     []byte

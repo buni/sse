@@ -37,7 +37,7 @@ func (e *LocalEventLog) Add(id string, ev *Event) {
 	}
 
 	ev.ID = []byte(strconv.Itoa(e.sequence))
-	ev.timestamp = time.Now().UTC()
+	ev.Timestamp = time.Now().UTC()
 	e.sequence++
 	e.eventLog[e.pointer] = ev
 	e.pointer = (e.pointer + 1) % e.cap
@@ -128,7 +128,7 @@ func (r *redisRingBuffer) Add(id string, ev *Event) {
 	if !ev.hasContent() || !ev.Save {
 		return
 	}
-	ev.timestamp = time.Now().UTC()
+	ev.Timestamp = time.Now().UTC()
 	ev.ID = []byte(strconv.Itoa(int(r.IncrementCounter(context.Background(), id))))
 
 	r.Push(context.Background(), id, ev)
