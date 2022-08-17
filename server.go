@@ -137,6 +137,10 @@ func (s *Server) Publish(id string, event *Event) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if event.Timestamp.IsZero() {
+		event.Timestamp = time.Now().UTC()
+	}
+
 	if id == "" {
 		for _, stream := range s.Streams {
 			stream.event <- s.process(event)
