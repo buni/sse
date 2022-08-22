@@ -34,6 +34,7 @@ type Server struct {
 	// Specifies the function to run when client subscribe or un-subscribe
 	OnSubscribe   func(streamID string, sub *Subscriber)
 	OnUnsubscribe func(streamID string, sub *Subscriber)
+	OnEvent       func(streamID string, ev *Event)
 	// Specifies the EventLog used for each new stream
 	EventLog EventLog
 }
