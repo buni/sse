@@ -5,6 +5,7 @@
 package sse
 
 import (
+	"context"
 	"encoding/base64"
 	"sync"
 	"time"
@@ -34,7 +35,7 @@ type Server struct {
 	// Specifies the function to run when client subscribe or un-subscribe
 	OnSubscribe   func(streamID string, sub *Subscriber)
 	OnUnsubscribe func(streamID string, sub *Subscriber)
-	OnEvent       func(streamID string, ev *Event)
+	OnEvent       func(ctx context.Context, streamID string, ev *Event)
 	// Specifies the EventLog used for each new stream
 	EventLog EventLog
 }

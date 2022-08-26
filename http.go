@@ -119,9 +119,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "\n")
 
 		flusher.Flush()
-		
+
 		if s.OnEvent != nil {
-			s.OnEvent(streamID, ev)
+			s.OnEvent(r.Context(), streamID, ev)
 		}
 	}
 }
