@@ -5,10 +5,12 @@
 package sse
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"testing"
 	"time"
 
@@ -211,6 +213,25 @@ func TestClientOnDisconnect(t *testing.T) {
 	assert.Equal(t, struct{}{}, <-called)
 }
 
+func TestClientOnConnect(t *testing.T) {
+	setup(false)
+	defer cleanup()
+
+	c := NewClient(urlPath)
+
+	called := make(chan struct{})
+	c.OnConnect(func(client *Client) {
+		called <- struct{}{}
+	})
+
+	go c.Subscribe("test", func(msg *Event) {})
+
+	time.Sleep(time.Second)
+	assert.Equal(t, struct{}{}, <-called)
+
+	server.CloseClientConnections()
+}
+
 func TestClientChanReconnect(t *testing.T) {
 	setup(false)
 	defer cleanup()
@@ -377,4 +398,27 @@ func TestTrimHeader(t *testing.T) {
 		got := trimHeader(len(headerData), tc.input)
 		require.Equal(t, tc.want, got)
 	}
+}
+
+func TestSubscribeWithContextDone(t *testing.T) {
+	setup(false)
+	defer cleanup()
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	var n1 = runtime.NumGoroutine()
+
+	c := NewClient(urlPath)
+
+	for i := 0; i < 10; i++ {
+		go c.SubscribeWithContext(ctx, "test", func(msg *Event) {})
+	}
+
+	time.Sleep(1 * time.Second)
+	cancel()
+
+	time.Sleep(1 * time.Second)
+	var n2 = runtime.NumGoroutine()
+
+	assert.Equal(t, n1, n2)
 }
