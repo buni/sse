@@ -47,9 +47,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	eventid := 0
+
 	if id := r.Header.Get("Last-Event-ID"); id != "" {
 		var err error
 		eventid, err = strconv.Atoi(id)
+
 		if err != nil {
 			http.Error(w, "Last-Event-ID must be a number!", http.StatusBadRequest)
 			return
@@ -64,7 +66,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		sub.close()
 
-		if s.AutoStream && !s.AutoReplay && stream.getSubscriberCount() == 0 {
+		if s.AutoStream && !s.AutoReplay && stream.GetSubscriberCount() == 0 {
 			s.RemoveStream(streamID)
 		}
 	}()
@@ -80,11 +82,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// if the event has expired, dont send it
-		if s.EventTTL != 0 && time.Now().After(ev.timestamp.Add(s.EventTTL)) {
+		if s.EventTTL != 0 && time.Now().UTC().After(ev.Timestamp.Add(s.EventTTL)) {
 			continue
 		}
 
 		if len(ev.Data) > 0 {
+
 			fmt.Fprintf(w, "id: %s\n", ev.ID)
 
 			if s.SplitData {
@@ -116,5 +119,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "\n")
 
 		flusher.Flush()
+
+		if s.OnEvent != nil {
+			s.OnEvent(r.Context(), streamID, ev)
+		}
 	}
 }

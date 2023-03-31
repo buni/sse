@@ -8,22 +8,28 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"time"
 )
 
 // Event holds all of the event source fields
 type Event struct {
-	timestamp time.Time
+	Timestamp time.Time
 	ID        []byte
 	Data      []byte
 	Event     []byte
 	Retry     []byte
 	Comment   []byte
+	Save      bool
 }
 
 func (e *Event) hasContent() bool {
 	return len(e.ID) > 0 || len(e.Data) > 0 || len(e.Event) > 0 || len(e.Retry) > 0
+}
+
+func (e *Event) UnmarshalBinary(data []byte) error {
+	return json.Unmarshal(data, e)
 }
 
 // EventStreamReader scans an io.Reader looking for EventStream messages.

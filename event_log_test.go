@@ -11,16 +11,21 @@ import (
 )
 
 func TestEventLog(t *testing.T) {
-	ev := make(EventLog, 0)
+	ev := &LocalEventLog{
+		eventLog: make([]*Event, 2, 2),
+		cap:      2,
+		pointer:  0,
+		sequence: 0,
+	}
 	testEvent := &Event{Data: []byte("test")}
 
-	ev.Add(testEvent)
-	ev.Clear()
+	ev.Add("id", testEvent)
+	ev.Clear("id")
 
-	assert.Equal(t, 0, len(ev))
+	assert.Equal(t, 2, len(ev.eventLog))
 
-	ev.Add(testEvent)
-	ev.Add(testEvent)
+	ev.Add("id", testEvent)
+	ev.Add("id", testEvent)
 
-	assert.Equal(t, 2, len(ev))
+	assert.Equal(t, 2, len(ev.eventLog))
 }

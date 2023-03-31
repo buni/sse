@@ -16,14 +16,14 @@ import (
 // Maybe fix this in the future so we can test with -race enabled
 
 func TestStreamAddSubscriber(t *testing.T) {
-	s := newStream("test", 1024, true, false, nil, nil)
+	s := newStream("test", 1024, true, false, nil, nil, nil)
 	s.run()
 	defer s.close()
 
 	s.event <- &Event{Data: []byte("test")}
 	sub := s.addSubscriber(0, nil)
 
-	assert.Equal(t, 1, s.getSubscriberCount())
+	assert.Equal(t, 1, s.GetSubscriberCount())
 
 	s.event <- &Event{Data: []byte("test")}
 	msg, err := wait(sub.connection, time.Second*1)
@@ -34,7 +34,7 @@ func TestStreamAddSubscriber(t *testing.T) {
 }
 
 func TestStreamRemoveSubscriber(t *testing.T) {
-	s := newStream("test", 1024, true, false, nil, nil)
+	s := newStream("test", 1024, true, false, nil, nil, nil)
 	s.run()
 	defer s.close()
 
@@ -43,11 +43,11 @@ func TestStreamRemoveSubscriber(t *testing.T) {
 	s.deregister <- sub
 	time.Sleep(time.Millisecond * 100)
 
-	assert.Equal(t, 0, s.getSubscriberCount())
+	assert.Equal(t, 0, s.GetSubscriberCount())
 }
 
 func TestStreamSubscriberClose(t *testing.T) {
-	s := newStream("test", 1024, true, false, nil, nil)
+	s := newStream("test", 1024, true, false, nil, nil, nil)
 	s.run()
 	defer s.close()
 
@@ -55,11 +55,11 @@ func TestStreamSubscriberClose(t *testing.T) {
 	sub.close()
 	time.Sleep(time.Millisecond * 100)
 
-	assert.Equal(t, 0, s.getSubscriberCount())
+	assert.Equal(t, 0, s.GetSubscriberCount())
 }
 
 func TestStreamDisableAutoReplay(t *testing.T) {
-	s := newStream("test", 1024, true, false, nil, nil)
+	s := newStream("test", 1024, true, false, nil, nil, nil)
 	s.run()
 	defer s.close()
 
@@ -74,7 +74,7 @@ func TestStreamDisableAutoReplay(t *testing.T) {
 func TestStreamMultipleSubscribers(t *testing.T) {
 	var subs []*Subscriber
 
-	s := newStream("test", 1024, true, false, nil, nil)
+	s := newStream("test", 1024, true, false, nil, nil, nil)
 	s.run()
 
 	for i := 0; i < 10; i++ {
@@ -95,6 +95,5 @@ func TestStreamMultipleSubscribers(t *testing.T) {
 
 	// Wait for all subscribers to close
 	time.Sleep(time.Millisecond * 100)
-	assert.Equal(t, 0, s.getSubscriberCount())
-
+	assert.Equal(t, 0, s.GetSubscriberCount())
 }

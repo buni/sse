@@ -5,6 +5,7 @@
 package sse
 
 import (
+	"context"
 	"encoding/base64"
 	"sync"
 	"time"
@@ -36,6 +37,9 @@ type Server struct {
 
 	streams   map[string]*Stream
 	muStreams sync.RWMutex
+	OnEvent       func(ctx context.Context, streamID string, ev *Event)
+	// Specifies the EventLog used for each new stream
+	EventLog EventLog
 }
 
 // New will create a server and setup defaults
@@ -74,7 +78,7 @@ func (s *Server) Close() {
 }
 
 // CreateStream will create a new stream and register it
-func (s *Server) CreateStream(id string) *Stream {
+func (s *Server) CreateStream(id string, options ...StreamOption) *Stream {
 	s.muStreams.Lock()
 	defer s.muStreams.Unlock()
 
@@ -82,7 +86,12 @@ func (s *Server) CreateStream(id string) *Stream {
 		return s.streams[id]
 	}
 
-	str := newStream(id, s.BufferSize, s.AutoReplay, s.AutoStream, s.OnSubscribe, s.OnUnsubscribe)
+	str := newStream(id, s.BufferSize, s.AutoReplay, s.AutoStream, s.OnSubscribe, s.OnUnsubscribe, s.EventLog)
+
+	for _, option := range options {
+		option(str)
+	}
+
 	str.run()
 
 	s.streams[id] = str
@@ -98,7 +107,24 @@ func (s *Server) RemoveStream(id string) {
 	if s.streams[id] != nil {
 		s.streams[id].close()
 		delete(s.streams, id)
+		s.streams[id].EventLog.Clear(id)
 	}
+}
+
+// GracefullyRemoveStream will remove a stream if there are zero subscribers
+// returns true if the streams has been closed
+func (s *Server) GracefullyRemoveStream(id string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.Streams[id] != nil {
+		if s.Streams[id].GetSubscriberCount() == 0 {
+			s.Streams[id].close()
+			delete(s.Streams, id)
+			return true
+		}
+	}
+	return false
 }
 
 // StreamExists checks whether a stream by a given id exists
@@ -122,21 +148,24 @@ func (s *Server) Publish(id string, event *Event) {
 	}
 }
 
-// TryPublish is the same as Publish except that when the operation would cause
-// the call to be blocked, it simply drops the message and returns false.
-// Together with a small BufferSize, it can be useful when publishing the
-// latest message ASAP is more important than reliable delivery.
-func (s *Server) TryPublish(id string, event *Event) bool {
-	stream := s.getStream(id)
-	if stream == nil {
-		return false
+// Publish sends a message to every client in a streamID
+// if id is empty sends the message to all streams
+func (s *Server) PublishAll(id string, event *Event) {
+	s.muStreams.Lock()
+	defer s.muStreams.Unlock()
+
+	if event.Timestamp.IsZero() {
+		event.Timestamp = time.Now().UTC()
 	}
 
-	select {
-	case stream.event <- s.process(event):
-		return true
-	default:
-		return false
+	if id == "" {
+		for _, stream := range s.Streams {
+			stream.event <- s.process(event)
+		}
+	}
+
+	if s.streams[id] != nil {
+		s.streams[id].event <- s.process(event)
 	}
 }
 
