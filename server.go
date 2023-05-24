@@ -111,21 +111,7 @@ func (s *Server) RemoveStream(id string) {
 	}
 }
 
-// GracefullyRemoveStream will remove a stream if there are zero subscribers
-// returns true if the streams has been closed
-func (s *Server) GracefullyRemoveStream(id string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
-	if s.Streams[id] != nil {
-		if s.Streams[id].GetSubscriberCount() == 0 {
-			s.Streams[id].close()
-			delete(s.Streams, id)
-			return true
-		}
-	}
-	return false
-}
 
 // StreamExists checks whether a stream by a given id exists
 func (s *Server) StreamExists(id string) bool {
@@ -159,7 +145,7 @@ func (s *Server) PublishAll(id string, event *Event) {
 	}
 
 	if id == "" {
-		for _, stream := range s.Streams {
+		for _, stream := range s.streams {
 			stream.event <- s.process(event)
 		}
 	}
