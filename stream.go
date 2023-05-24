@@ -6,6 +6,7 @@ package sse
 
 import (
 	"net/url"
+	"sync"
 	"sync/atomic"
 )
 
@@ -59,6 +60,7 @@ type Stream struct {
 	ID              string
 	event           chan *Event
 	quit            chan struct{}
+	quitOnce        sync.Once
 	register        chan *Subscriber
 	deregister      chan *Subscriber
 	subscribers     []*Subscriber
@@ -142,7 +144,9 @@ func (str *Stream) run() {
 }
 
 func (str *Stream) close() {
-	str.quit <- struct{}{}
+	str.quitOnce.Do(func() {
+		close(str.quit)
+	})
 }
 
 func (str *Stream) getSubIndex(sub *Subscriber) int {

@@ -16,13 +16,12 @@ const DefaultBufferSize = 1024
 
 // Server Is our main struct
 type Server struct {
-	Streams map[string]*Stream
+	// Extra headers adding to the HTTP response to each client
 	Headers map[string]string
 	// Sets a ttl that prevents old events from being transmitted
 	EventTTL time.Duration
 	// Specifies the size of the message buffer for each stream
 	BufferSize int
-	mu         sync.Mutex
 	// Encodes all data as base64
 	EncodeBase64 bool
 	// Splits an events data into multiple data: entries
@@ -35,6 +34,9 @@ type Server struct {
 	// Specifies the function to run when client subscribe or un-subscribe
 	OnSubscribe   func(streamID string, sub *Subscriber)
 	OnUnsubscribe func(streamID string, sub *Subscriber)
+
+	streams   map[string]*Stream
+	muStreams sync.RWMutex
 	OnEvent       func(ctx context.Context, streamID string, ev *Event)
 	// Specifies the EventLog used for each new stream
 	EventLog EventLog
@@ -46,7 +48,7 @@ func New() *Server {
 		BufferSize: DefaultBufferSize,
 		AutoStream: false,
 		AutoReplay: true,
-		Streams:    make(map[string]*Stream),
+		streams:    make(map[string]*Stream),
 		Headers:    map[string]string{},
 	}
 }
@@ -57,7 +59,7 @@ func NewWithCallback(onSubscribe, onUnsubscribe func(streamID string, sub *Subsc
 		BufferSize:    DefaultBufferSize,
 		AutoStream:    false,
 		AutoReplay:    true,
-		Streams:       make(map[string]*Stream),
+		streams:       make(map[string]*Stream),
 		Headers:       map[string]string{},
 		OnSubscribe:   onSubscribe,
 		OnUnsubscribe: onUnsubscribe,
@@ -66,22 +68,22 @@ func NewWithCallback(onSubscribe, onUnsubscribe func(streamID string, sub *Subsc
 
 // Close shuts down the server, closes all of the streams and connections
 func (s *Server) Close() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.muStreams.Lock()
+	defer s.muStreams.Unlock()
 
-	for id := range s.Streams {
-		s.Streams[id].quit <- struct{}{}
-		delete(s.Streams, id)
+	for id := range s.streams {
+		s.streams[id].close()
+		delete(s.streams, id)
 	}
 }
 
 // CreateStream will create a new stream and register it
 func (s *Server) CreateStream(id string, options ...StreamOption) *Stream {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.muStreams.Lock()
+	defer s.muStreams.Unlock()
 
-	if s.Streams[id] != nil {
-		return s.Streams[id]
+	if s.streams[id] != nil {
+		return s.streams[id]
 	}
 
 	str := newStream(id, s.BufferSize, s.AutoReplay, s.AutoStream, s.OnSubscribe, s.OnUnsubscribe, s.EventLog)
@@ -92,20 +94,20 @@ func (s *Server) CreateStream(id string, options ...StreamOption) *Stream {
 
 	str.run()
 
-	s.Streams[id] = str
+	s.streams[id] = str
 
 	return str
 }
 
 // RemoveStream will remove a stream
 func (s *Server) RemoveStream(id string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.muStreams.Lock()
+	defer s.muStreams.Unlock()
 
-	if s.Streams[id] != nil {
-		s.Streams[id].close()
-		delete(s.Streams, id)
-		s.Streams[id].EventLog.Clear(id)
+	if s.streams[id] != nil {
+		s.streams[id].close()
+		delete(s.streams, id)
+		s.streams[id].EventLog.Clear(id)
 	}
 }
 
@@ -127,17 +129,30 @@ func (s *Server) GracefullyRemoveStream(id string) bool {
 
 // StreamExists checks whether a stream by a given id exists
 func (s *Server) StreamExists(id string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	return s.getStream(id) != nil
+}
 
-	return s.Streams[id] != nil
+// Publish sends a mesage to every client in a streamID.
+// If the stream's buffer is full, it blocks until the message is sent out to
+// all subscribers (but not necessarily arrived the clients), or when the
+// stream is closed.
+func (s *Server) Publish(id string, event *Event) {
+	stream := s.getStream(id)
+	if stream == nil {
+		return
+	}
+
+	select {
+	case <-stream.quit:
+	case stream.event <- s.process(event):
+	}
 }
 
 // Publish sends a message to every client in a streamID
 // if id is empty sends the message to all streams
-func (s *Server) Publish(id string, event *Event) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *Server) PublishAll(id string, event *Event) {
+	s.muStreams.Lock()
+	defer s.muStreams.Unlock()
 
 	if event.Timestamp.IsZero() {
 		event.Timestamp = time.Now().UTC()
@@ -149,15 +164,15 @@ func (s *Server) Publish(id string, event *Event) {
 		}
 	}
 
-	if s.Streams[id] != nil {
-		s.Streams[id].event <- s.process(event)
+	if s.streams[id] != nil {
+		s.streams[id].event <- s.process(event)
 	}
 }
 
 func (s *Server) getStream(id string) *Stream {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.Streams[id]
+	s.muStreams.RLock()
+	defer s.muStreams.RUnlock()
+	return s.streams[id]
 }
 
 func (s *Server) process(event *Event) *Event {
